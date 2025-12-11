@@ -1,0 +1,4 @@
+2025-12-10 21:21:45,648 - INFO - httpx - HTTP Request: POST http://localhost:9200/my_index/_search "HTTP/1.1 200 OK"
+2025-12-10 21:22:57,461 - INFO - httpx - HTTP Request: POST http://localhost:9200/my_index/_search "HTTP/1.1 200 OK"
+2025-12-10 21:23:00,444 - INFO - httpx - HTTP Request: POST http://localhost:9200/my_index/_search "HTTP/1.1 200 OK"
+2025-12-10 21:23:00,556 - INFO - httpx - HTTP Request: POST http://localhost:9200/my_index/_update/12345 "HTTP/1.1 200 OK"

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prophecy Document Viewer</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --background-color: #f8fafc;
+            --surface-color: #ffffff;
+            --border-color: #e2e8f0;
+            --text-color: #1e293b;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--surface-color);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        #search-container {
+            display: flex;
+            gap: 0.5rem;
+            flex: 1;
+            max-width: 600px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 0.6rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.25rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #1d4ed8;
+        }
+
+        button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        #main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #viewer-panel {
+            flex: 2;
+            background: #fff;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #metadata-panel {
+            flex: 1;
+            background: var(--surface-color);
+            padding: 2rem;
+            min-width: 300px;
+            max-width: 450px;
+            overflow-y: auto;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .panel-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        .status-message {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .status-success {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .status-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        #empty-state {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #94a3b8;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        /* Auth Token Helper */
+        #auth-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-size: 0.8rem;
+            margin-left: auto;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Prophecy Viewer</h1>
+    <div id="search-container">
+        <input type="text" id="prophecy-id-input" placeholder="Enter Prophecy ID (e.g., PROP-123)">
+        <button onclick="searchProphecy()">Search</button>
+    </div>
+    <!-- Simple way to handle auth for this standalone page -->
+    <div id="auth-section">
+        <span>Token:</span>
+        <input type="password" id="auth-token" placeholder="Paste Bearer Token" style="width: 100px;">
+    </div>
+</header>
+
+<div id="main-container">
+    <div id="viewer-panel">
+        <div id="empty-state">
+            <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <p>Enter a Prophecy ID to view the document</p>
+        </div>
+        <iframe id="doc-frame" style="display: none;"></iframe>
+    </div>
+
+    <div id="metadata-panel">
+        <div class="panel-header">Metadata & Actions</div>
+        
+        <div id="metadata-content" style="opacity: 0.5; pointer-events: none;">
+            <div class="form-group">
+                <label>System Path</label>
+                <div id="display-system-path" style="font-family: monospace; font-size: 0.85rem; word-break: break-all; background: #f1f5f9; padding: 0.5rem; border-radius: 4px;">-</div>
+            </div>
+
+            <div class="form-group">
+                <label for="access-branches">Access Branches</label>
+                <input type="text" id="access-branches" placeholder="Enter access branches...">
+            </div>
+
+            <button onclick="saveChanges()" id="save-btn">Update Access Branches</button>
+
+            <div id="status-msg" class="status-message"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentProphecyId = null;
+
+    function getToken() {
+        // In a real scenario, you might get this from localStorage or a login flow.
+        // For this tool, we assume the user might paste it or we can try without if auth is disabled for get (but it is enabled).
+        return document.getElementById('auth-token').value;
+    }
+
+    async function searchProphecy() {
+        const id = document.getElementById('prophecy-id-input').value.trim();
+        if (!id) return;
+
+        const token = getToken();
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+        // Reset UI
+        document.getElementById('empty-state').style.display = 'flex';
+        document.getElementById('doc-frame').style.display = 'none';
+        document.getElementById('metadata-content').style.opacity = '0.5';
+        document.getElementById('metadata-content').style.pointerEvents = 'none';
+        document.getElementById('status-msg').style.display = 'none';
+
+        try {
+            const response = await fetch(`/api/prophecy/${encodeURIComponent(id)}`, {
+                headers: headers
+            });
+
+            if (response.status === 404) {
+                alert('Prophecy ID not found');
+                return;
+            }
+            
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Search failed');
+            }
+
+            const data = await response.json();
+            
+            if (data.found) {
+                currentProphecyId = data.prophecy_id;
+                
+                // Update Metadata UI
+                document.getElementById('display-system-path').innerText = data.system_path || 'N/A';
+                document.getElementById('access-branches').value = data.access_branches || '';
+                
+                // Enable UI
+                document.getElementById('metadata-content').style.opacity = '1';
+                document.getElementById('metadata-content').style.pointerEvents = 'auto';
+
+                // Load Document
+                if (data.system_path) {
+                    document.getElementById('empty-state').style.display = 'none';
+                    const frame = document.getElementById('doc-frame');
+                    frame.style.display = 'block';
+                    // The backend expects URI component encoded path
+                    frame.src = `/api/documents/${encodeURIComponent(data.system_path)}`;
+                    if(token) {
+                         // iframe auth is tricky. Usually cookies or query param. 
+                         // The current backend get_document endpoint relies on 'Depends(get_current_user)' which checks 'Authorization' header OR 'token' query param.
+                         // Let's append token query param.
+                         frame.src += `?token=${encodeURIComponent(token)}`;
+                    }
+                }
+            }
+
+        } catch (e) {
+            console.error(e);
+            alert(`Error: ${e.message}`);
+        }
+    }
+
+    async function saveChanges() {
+        if (!currentProphecyId) return;
+
+        const accessBranches = document.getElementById('access-branches').value;
+        const btn = document.getElementById('save-btn');
+        const statusEl = document.getElementById('status-msg');
+        
+        btn.disabled = true;
+        btn.innerText = 'Updating...';
+        statusEl.className = 'status-message';
+        statusEl.style.display = 'none';
+
+        const token = getToken();
+        const headers = { 
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        };
+
+        try {
+            const response = await fetch('/api/update-access-branches', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({
+                    prophecy_id: currentProphecyId,
+                    access_branches: accessBranches
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Update failed');
+            }
+
+            statusEl.innerText = 'Success! Access branches updated.';
+            statusEl.classList.add('status-success');
+            statusEl.style.display = 'block';
+
+        } catch (e) {
+            statusEl.innerText = `Error: ${e.message}`;
+            statusEl.classList.add('status-error');
+            statusEl.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Update Access Branches';
+        }
+    }
+    
+    // Auto-search on enter
+    document.getElementById('prophecy-id-input').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            searchProphecy();
+        }
+    });
+</script>
+
+</body>
+</html>
