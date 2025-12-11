@@ -2,3 +2,55 @@ they instaled from fastapi.staticfiles import StaticFiles
 
 aiofiles
 
+
+
+
+
+
+# *** UPDATED *** /api/documents/{file_path:path} endpoint
+@app.get("/api/documents/{file_path:path}")
+async def get_document(
+    file_path: str,
+    action: str = Query("view", enum=["view", "download"]),
+):
+    try:
+        valid_src_path: Path = is_path_secure_and_valid(file_path, ALLOWED_DOCUMENT_ROOTS) # Your validation function
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during path validation for '{file_path}': {e}")
+        raise HTTPException(status_code=500, detail="Server error during path validation.")
+
+    file_extension = valid_src_path.suffix.lower()
+    mime_type, _ = mimetypes.guess_type(valid_src_path)
+    mime_type = mime_type or "application/octet-stream"
+
+    try:
+        if action == "download":
+            return FileResponse(
+                path=valid_src_path, media_type=mime_type, filename=valid_src_path.name,
+                headers={"Content-Disposition": f'attachment; filename="{valid_src_path.name}"'}
+            )
+        
+        elif action == "view":
+            # --- DOC/DOCX to HTML (with embedded images) ---
+            if file_extension in [".doc", ".docx"] and LIBREOFFICE_PATH:
+                with tempfile.TemporaryDirectory(prefix="lo_html_convert_") as tmp_dir_str:
+                    tmp_output_dir = Path(tmp_dir_str)
+                    try:
+                        # Call the updated function that returns HTML string
+                        html_content_with_embedded_images = convert_to_html_with_libreoffice(
+                            valid_src_path, 
+                            tmp_output_dir,
+                            embed_images=True # Ensure this is true
+                        )
+                        return HTMLResponse(content=html_content_with_embedded_images)
+                    except (RuntimeError, FileNotFoundError) as conversion_error:
+                        logger.error(f"HTML conversion failed for {valid_src_path.name}: {conversion_error}")
+                        return HTMLResponse(
+                            content=f"<html><body><h1>Preview Unavailable</h1><p>Could not generate a preview for {valid_src_path.name}. Error: {str(conversion_error)[:200]}...</p><p>You can try downloading the file directly.</p></body></html>",
+                            status_code=500
+                        ) is my backend and as you can see it has an endpoint for viewing documents.... dont worry about this it is working fine and you can access this by calling at localhost:8000... when i pass a documents SystemPath it gives me the html for doc docx .. now i want a frontend that has this option when i put in ProphecyId of a document maybe in the searchbar it goes to backend make a backend endpoint that goes to elastic based on ProphecyId.keypord( like this "term": {
+                    "ProphecyId.keyword": ProphecyId
+                  } fetches the SystemPath corresponding to the ProphecyId and then views the document... while this is doable i want 2 more things .. i want to show a field called access_braches side by side or somewhere beside the text which is being rendered .,.. the goal is to basically be able to see them side by side and another funcrtinality that i want to incorporate is the edit button.. where i see access_branches give an edit button and then when click on it let me change the value when i click on submit go to backend with the PropecyId and whaterver user put in access_branches make the backend change the field in elastic search with the value
+
